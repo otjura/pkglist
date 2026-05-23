@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<agents-guidelines>
+  <project-metadata>
+    <name>pkglist</name>
+    <description>A stylish CLI &amp; TUI tool for package space and dependency tree analysis.</description>
+  </project-metadata>
+  
+  <!-- Instructions for AI assistants or LLM agents visiting this codebase -->
+  <constraints>
+    <constraint id="do-not-touch-core-graph-algorithms">
+      <target-files>
+        <file>src/graph.rs</file>
+      </target-files>
+      <directive>
+        Do NOT alter the space calculation algorithms. Both transitive_size (dependency tree) and exclusive_size (saved space reference-counting garbage collection simulation) have been optimized and validated to resolve RPM dependency cycles and shared/exclusive dependency states correctly.
+      </directive>
+    </constraint>
+    
+    <constraint id="do-not-touch-dnf-parser">
+      <target-files>
+        <file>src/dnf.rs</file>
+      </target-files>
+      <directive>
+        Do NOT change the state machine parser or the dnf5 queryformat arguments. The parser depends on a custom delimited structure (=PKG=, =SIZE=, =REQ=, =PROV=, =END=) to parse all 3700+ packages in milliseconds. Modifying one without the other will break system database querying.
+      </directive>
+    </constraint>
+    
+    <constraint id="do-not-touch-keyboard-bindings">
+      <target-files>
+        <file>src/tui.rs</file>
+      </target-files>
+      <directive>
+        Do NOT remove or overwrite the custom keyboard interaction layout:
+        - Navigation: WASD keys ('w'/'s') and Arrow keys ('Up'/'Down') scroll lists.
+        - Panel switching: Left/Right arrow keys and 'a'/'d' keys toggle focus between Packages table and Package Details.
+        - Sorting: Hotkeys '1' to '4' sort columns.
+        - Search: Hotkey 'f' enters search. 'Esc' cancels and clears search. 'Enter'/'Tab' close search but preserve query.
+        - Jumps: Pressing 'Enter' on any dependency/dependent item in Details jumps focus and selection to that package.
+      </directive>
+    </constraint>
+    
+    <constraint id="do-not-touch-manifest">
+      <target-files>
+        <file>Cargo.toml</file>
+      </target-files>
+      <directive>
+        Do NOT modify package names or editions without user consent.
+      </directive>
+    </constraint>
+  </constraints>
+</agents-guidelines>
