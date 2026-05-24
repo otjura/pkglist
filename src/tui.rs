@@ -442,38 +442,6 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
         detail_lines.push(Line::from(""));
         
         detail_lines.push(Line::from(Span::styled(
-            format!("Direct Dependencies ({}):", pkg.dependencies.len()),
-            Style::default().add_modifier(Modifier::UNDERLINED)
-        )));
-        if pkg.dependencies.is_empty() {
-            detail_lines.push(Line::from("  (none)"));
-        } else {
-            let mut deps = pkg.dependencies.clone();
-            deps.sort_by_key(|&d| std::cmp::Reverse(app.graph.packages[d].installsize));
-            
-            for (idx, &d) in deps.iter().enumerate() {
-                let dep = &app.graph.packages[d];
-                let is_selected = app.active_panel == ActivePanel::Details && app.selected_dep_idx == idx;
-                
-                let prefix = if is_selected { "» " } else { "- " };
-                let mut style = Style::default();
-                if is_selected {
-                    style = style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
-                } else {
-                    style = style.fg(Color::Cyan);
-                }
-                
-                detail_lines.push(Line::from(vec![
-                    Span::styled(prefix, if is_selected { Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) }),
-                    Span::styled(&dep.name, style),
-                    Span::raw(format!(" ({})", format_bytes(dep.installsize))),
-                ]));
-            }
-        }
-        
-        detail_lines.push(Line::from(""));
-        
-        detail_lines.push(Line::from(Span::styled(
             format!("Direct Dependents ({}):", pkg.dependents.len()),
             Style::default().add_modifier(Modifier::UNDERLINED)
         )));
@@ -485,8 +453,7 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
             
             for (idx, &r) in reqs.iter().enumerate() {
                 let req = &app.graph.packages[r];
-                let global_idx = num_deps + idx;
-                let is_selected = app.active_panel == ActivePanel::Details && app.selected_dep_idx == global_idx;
+                let is_selected = app.active_panel == ActivePanel::Details && app.selected_dep_idx == idx;
                 
                 let prefix = if is_selected { "» " } else { "- " };
                 let mut style = Style::default();
@@ -500,6 +467,39 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
                     Span::styled(prefix, if is_selected { Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) }),
                     Span::styled(&req.name, style),
                     Span::raw(format!(" ({})", format_bytes(req.installsize))),
+                ]));
+            }
+        }
+        
+        detail_lines.push(Line::from(""));
+        
+        detail_lines.push(Line::from(Span::styled(
+            format!("Direct Dependencies ({}):", pkg.dependencies.len()),
+            Style::default().add_modifier(Modifier::UNDERLINED)
+        )));
+        if pkg.dependencies.is_empty() {
+            detail_lines.push(Line::from("  (none)"));
+        } else {
+            let mut deps = pkg.dependencies.clone();
+            deps.sort_by_key(|&d| std::cmp::Reverse(app.graph.packages[d].installsize));
+            
+            for (idx, &d) in deps.iter().enumerate() {
+                let dep = &app.graph.packages[d];
+                let global_idx = num_reqs + idx;
+                let is_selected = app.active_panel == ActivePanel::Details && app.selected_dep_idx == global_idx;
+                
+                let prefix = if is_selected { "» " } else { "- " };
+                let mut style = Style::default();
+                if is_selected {
+                    style = style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
+                } else {
+                    style = style.fg(Color::Cyan);
+                }
+                
+                detail_lines.push(Line::from(vec![
+                    Span::styled(prefix, if is_selected { Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) }),
+                    Span::styled(&dep.name, style),
+                    Span::raw(format!(" ({})", format_bytes(dep.installsize))),
                 ]));
             }
         }
@@ -639,10 +639,10 @@ fn run_app<B: ratatui::backend::Backend>(
                                     let total_items = num_deps + num_reqs;
                                     
                                     if total_items > 0 && app.selected_dep_idx < total_items {
-                                        let target_idx = if app.selected_dep_idx < num_deps {
-                                            deps[app.selected_dep_idx]
+                                        let target_idx = if app.selected_dep_idx < num_reqs {
+                                            reqs[app.selected_dep_idx]
                                         } else {
-                                            reqs[app.selected_dep_idx - num_deps]
+                                            deps[app.selected_dep_idx - num_reqs]
                                         };
                                         
                                         let mut found_pos = app.filtered_indices.iter().position(|&idx| idx == target_idx);

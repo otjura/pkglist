@@ -58,15 +58,15 @@ pub fn build_graph(raw_pkgs: Vec<RawPackage>) -> DependencyGraph {
         });
     }
     
-    // Map capabilities (provides) to package indices
-    let mut provides_map = HashMap::new();
+    // Map capabilities (provides) to all package indices that provide them
+    let mut provides_map: HashMap<String, Vec<usize>> = HashMap::new();
     for (i, rp) in raw_pkgs.iter().enumerate() {
         // A package always provides its own name
-        provides_map.insert(rp.name.clone(), i);
+        provides_map.entry(rp.name.clone()).or_default().push(i);
         
         for prov in &rp.provides {
             let clean = clean_capability(prov);
-            provides_map.insert(clean, i);
+            provides_map.entry(clean).or_default().push(i);
         }
     }
     
@@ -83,10 +83,12 @@ pub fn build_graph(raw_pkgs: Vec<RawPackage>) -> DependencyGraph {
                 continue;
             }
             
-            if let Some(&dep_idx) = provides_map.get(&clean) {
-                if dep_idx != i { // No self-loops
-                    temp_deps[i].insert(dep_idx);
-                    temp_rev_deps[dep_idx].insert(i);
+            if let Some(providers) = provides_map.get(&clean) {
+                for &dep_idx in providers {
+                    if dep_idx != i { // No self-loops
+                        temp_deps[i].insert(dep_idx);
+                        temp_rev_deps[dep_idx].insert(i);
+                    }
                 }
             }
         }

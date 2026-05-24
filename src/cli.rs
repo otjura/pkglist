@@ -218,19 +218,6 @@ pub fn run_info(graph: &DependencyGraph, name: &str) {
     }
     println!();
 
-    println!("{} ({})", "Direct Dependencies".bold().underline(), p.dependencies.len());
-    if p.dependencies.is_empty() {
-        println!("  (none)");
-    } else {
-        let mut deps = p.dependencies.clone();
-        deps.sort_by_key(|&d| std::cmp::Reverse(graph.packages[d].installsize));
-        for &dep_idx in &deps {
-            let dep = &graph.packages[dep_idx];
-            println!("  - {:<30} ({:>10})", dep.name.cyan(), format_bytes(dep.installsize).green());
-        }
-    }
-    println!();
-
     println!("{} ({})", "Direct Dependents".bold().underline(), p.dependents.len());
     if p.dependents.is_empty() {
         println!("  (none)");
@@ -240,6 +227,19 @@ pub fn run_info(graph: &DependencyGraph, name: &str) {
         for &req_idx in &reqs {
             let req = &graph.packages[req_idx];
             println!("  - {:<30} ({:>10})", req.name.cyan(), format_bytes(req.installsize).green());
+        }
+    }
+    println!();
+
+    println!("{} ({})", "Direct Dependencies".bold().underline(), p.dependencies.len());
+    if p.dependencies.is_empty() {
+        println!("  (none)");
+    } else {
+        let mut deps = p.dependencies.clone();
+        deps.sort_by_key(|&d| std::cmp::Reverse(graph.packages[d].installsize));
+        for &dep_idx in &deps {
+            let dep = &graph.packages[dep_idx];
+            println!("  - {:<30} ({:>10})", dep.name.cyan(), format_bytes(dep.installsize).green());
         }
     }
     println!("{}", "================================================================================".blue());
