@@ -5,7 +5,7 @@ use serde::Serialize;
 
 #[derive(Parser, Debug)]
 #[command(name = "pkglist")]
-#[command(about = "A stylish CLI & TUI package space explorer for dnf5 systems", long_about = None)]
+#[command(about = "A stylish CLI & TUI package space explorer.", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -41,6 +41,7 @@ pub enum Commands {
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SortBy {
     Name,
+    Type,
     Size,
     Transitive,
     Exclusive,
@@ -57,6 +58,7 @@ pub enum Format {
 #[derive(Serialize)]
 struct JsonPackage {
     name: String,
+    package_type: crate::graph::PackageType,
     version: String,
     release: String,
     arch: String,
@@ -100,6 +102,17 @@ pub fn run_list(
     pkgs.sort_by(|a, b| {
         match sort {
             SortBy::Name => a.name.cmp(&b.name),
+            SortBy::Type => {
+                let type_a = match a.pkg_type {
+                    crate::graph::PackageType::Rpm => "rpm",
+                    crate::graph::PackageType::Flatpak => "flatpak",
+                };
+                let type_b = match b.pkg_type {
+                    crate::graph::PackageType::Rpm => "rpm",
+                    crate::graph::PackageType::Flatpak => "flatpak",
+                };
+                type_a.cmp(type_b).then_with(|| a.name.cmp(&b.name))
+            }
             SortBy::Size => b.installsize.cmp(&a.installsize),
             SortBy::Transitive => b.transitive_size.cmp(&a.transitive_size),
             SortBy::Exclusive => b.exclusive_size.cmp(&a.exclusive_size),
@@ -134,8 +147,9 @@ fn print_table(pkgs: &[&Package]) {
     // Print headers
     let name_header = format!("{:<width$}", "Package", width = max_name_len);
     println!(
-        "{} | {:>12} | {:>12} | {:>12}",
+        "{} | {:<8} | {:>12} | {:>12} | {:>12}",
         name_header.bold().underline(),
+        "Type".bold().underline(),
         "Size".bold().underline(),
         "Transitive".bold().underline(),
         "Saved Space".bold().underline()
@@ -143,29 +157,53 @@ fn print_table(pkgs: &[&Package]) {
 
     for p in pkgs {
         let name_str = format!("{:<width$}", p.name, width = max_name_len).cyan().bold();
+        let type_raw = match p.pkg_type {
+            crate::graph::PackageType::Rpm => "rpm",
+            crate::graph::PackageType::Flatpak => "flatpak",
+        };
+        let type_padded = format!("{:<8}", type_raw);
+        let type_str = match p.pkg_type {
+            crate::graph::PackageType::Rpm => type_padded.blue(),
+            crate::graph::PackageType::Flatpak => type_padded.magenta(),
+        };
         let size_str = format_bytes(p.installsize).green();
         let trans_str = format_bytes(p.transitive_size).yellow();
         let excl_str = format_bytes(p.exclusive_size).magenta();
-        println!("{} | {:>12} | {:>12} | {:>12}", name_str, size_str, trans_str, excl_str);
+        println!(
+            "{} | {} | {:>12} | {:>12} | {:>12}",
+            name_str,
+            type_str,
+            size_str,
+            trans_str,
+            excl_str
+        );
     }
 }
 
 fn print_csv(pkgs: &[&Package]) {
-    println!("name,version,release,arch,install_size,transitive_size,exclusive_size");
+    println!("name,type,version,release,arch,install_size,transitive_size,exclusive_size");
     for p in pkgs {
+        let type_str = match p.pkg_type {
+            crate::graph::PackageType::Rpm => "rpm",
+            crate::graph::PackageType::Flatpak => "flatpak",
+        };
         println!(
-            "{},{},{},{},{},{},{}",
-            p.name, p.version, p.release, p.arch, p.installsize, p.transitive_size, p.exclusive_size
+            "{},{},{},{},{},{},{},{}",
+            p.name, type_str, p.version, p.release, p.arch, p.installsize, p.transitive_size, p.exclusive_size
         );
     }
 }
 
 fn print_tsv(pkgs: &[&Package]) {
-    println!("name\tversion\trelease\tarch\tinstall_size\ttransitive_size\texclusive_size");
+    println!("name\ttype\tversion\trelease\tarch\tinstall_size\ttransitive_size\texclusive_size");
     for p in pkgs {
+        let type_str = match p.pkg_type {
+            crate::graph::PackageType::Rpm => "rpm",
+            crate::graph::PackageType::Flatpak => "flatpak",
+        };
         println!(
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            p.name, p.version, p.release, p.arch, p.installsize, p.transitive_size, p.exclusive_size
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            p.name, type_str, p.version, p.release, p.arch, p.installsize, p.transitive_size, p.exclusive_size
         );
     }
 }
@@ -175,6 +213,7 @@ fn print_json(pkgs: &[&Package]) {
         .iter()
         .map(|p| JsonPackage {
             name: p.name.clone(),
+            package_type: p.pkg_type,
             version: p.version.clone(),
             release: p.release.clone(),
             arch: p.arch.clone(),
@@ -205,6 +244,11 @@ pub fn run_info(graph: &DependencyGraph, name: &str) {
     println!("{} : {}", "PACKAGE".blue().bold(), p.name.green().bold());
     println!("{}", "================================================================================".blue());
     println!("{:<15} {}-{}", "Version:".bold(), p.version, p.release);
+    let type_str = match p.pkg_type {
+        crate::graph::PackageType::Rpm => "rpm".blue().bold(),
+        crate::graph::PackageType::Flatpak => "flatpak".magenta().bold(),
+    };
+    println!("{:<15} {}", "Type:".bold(), type_str);
     println!("{:<15} {}", "Architecture:".bold(), p.arch);
     println!("{:<15} {}", "Summary:".bold(), p.summary);
     println!();

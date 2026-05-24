@@ -1,4 +1,12 @@
 use std::collections::{HashMap, HashSet, VecDeque};
+use serde::Serialize;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PackageType {
+    Rpm,
+    Flatpak,
+}
 
 /// Backend-agnostic package input. Any package manager backend should
 /// produce a Vec of these with pre-resolved dependency indices.
@@ -13,6 +21,8 @@ pub struct PackageInput {
     pub description: String,
     /// Indices into the parent Vec<PackageInput> representing resolved dependencies.
     pub resolved_deps: Vec<usize>,
+    pub pkg_type: PackageType,
+    pub flatpak_deps: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -24,6 +34,7 @@ pub struct Package {
     pub installsize: u64,
     pub summary: String,
     pub description: String,
+    pub pkg_type: PackageType,
     
     // Indices into the packages array
     pub dependencies: Vec<usize>,
@@ -61,6 +72,7 @@ pub fn build_graph(inputs: Vec<PackageInput>) -> DependencyGraph {
             installsize: input.installsize,
             summary: input.summary,
             description: input.description,
+            pkg_type: input.pkg_type,
             dependencies: input.resolved_deps,
             dependents: std::mem::take(&mut rev_deps[i]),
             transitive_size: 0,

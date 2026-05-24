@@ -217,6 +217,8 @@ pub fn resolve_packages(raw_pkgs: Vec<RawPackage>) -> Vec<PackageInput> {
             summary: rp.summary,
             description: rp.description,
             resolved_deps: deps,
+            pkg_type: crate::graph::PackageType::Rpm,
+            flatpak_deps: Vec::new(),
         }
     }).collect()
 }

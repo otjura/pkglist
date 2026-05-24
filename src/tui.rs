@@ -10,6 +10,7 @@ use crate::cli::format_bytes;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TuiSortColumn {
     Name,
+    Type,
     Size,
     Transitive,
     Exclusive,
@@ -64,6 +65,17 @@ fn filter_and_sort(
 
         let cmp = match sort_col {
             TuiSortColumn::Name => pkg_a.name.cmp(&pkg_b.name),
+            TuiSortColumn::Type => {
+                let type_a = match pkg_a.pkg_type {
+                    crate::graph::PackageType::Rpm => "rpm",
+                    crate::graph::PackageType::Flatpak => "flatpak",
+                };
+                let type_b = match pkg_b.pkg_type {
+                    crate::graph::PackageType::Rpm => "rpm",
+                    crate::graph::PackageType::Flatpak => "flatpak",
+                };
+                type_a.cmp(type_b).then_with(|| pkg_a.name.cmp(&pkg_b.name))
+            }
             TuiSortColumn::Size => pkg_a.installsize.cmp(&pkg_b.installsize),
             TuiSortColumn::Transitive => pkg_a.transitive_size.cmp(&pkg_b.transitive_size),
             TuiSortColumn::Exclusive => pkg_a.exclusive_size.cmp(&pkg_b.exclusive_size),
@@ -255,7 +267,7 @@ impl<'a> TuiApp<'a> {
         } else {
             self.sort_column = col;
             self.sort_direction = match col {
-                TuiSortColumn::Name => SortDirection::Ascending,
+                TuiSortColumn::Name | TuiSortColumn::Type => SortDirection::Ascending,
                 _ => SortDirection::Descending,
             };
         }
@@ -341,6 +353,7 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
 
     let header_cells = [
         Cell::from(format!("Package {}", get_sort_indicator(TuiSortColumn::Name, app.sort_column, app.sort_direction))),
+        Cell::from(format!("Type {}", get_sort_indicator(TuiSortColumn::Type, app.sort_column, app.sort_direction))),
         Cell::from(format!("Size {}", get_sort_indicator(TuiSortColumn::Size, app.sort_column, app.sort_direction))),
         Cell::from(format!("Transitive {}", get_sort_indicator(TuiSortColumn::Transitive, app.sort_column, app.sort_direction))),
         Cell::from(format!("Saved {}", get_sort_indicator(TuiSortColumn::Exclusive, app.sort_column, app.sort_direction))),
@@ -353,8 +366,13 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
         .iter()
         .map(|&idx| {
             let pkg = &app.graph.packages[idx];
+            let (type_str, type_color) = match pkg.pkg_type {
+                crate::graph::PackageType::Rpm => ("rpm", Color::Blue),
+                crate::graph::PackageType::Flatpak => ("flatpak", Color::Rgb(236, 72, 153)),
+            };
             let cells = [
                 Cell::from(pkg.name.clone()).style(Style::default().fg(Color::White)),
+                Cell::from(type_str).style(Style::default().fg(type_color)),
                 Cell::from(format_bytes(pkg.installsize)).style(Style::default().fg(Color::Green)),
                 Cell::from(format_bytes(pkg.transitive_size)).style(Style::default().fg(Color::Yellow)),
                 Cell::from(format_bytes(pkg.exclusive_size)).style(Style::default().fg(Color::Magenta)),
@@ -364,8 +382,9 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
         .collect();
 
     let table = Table::new(rows, [
-        Constraint::Percentage(43),
-        Constraint::Percentage(19),
+        Constraint::Percentage(33),
+        Constraint::Percentage(11),
+        Constraint::Percentage(18),
         Constraint::Percentage(19),
         Constraint::Percentage(19),
     ])
@@ -408,6 +427,20 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
         detail_lines.push(Line::from(vec![
             Span::raw("Version: "),
             Span::raw(format!("{}-{} ({})", pkg.version, pkg.release, pkg.arch)),
+        ]));
+        
+        detail_lines.push(Line::from(vec![
+            Span::raw("Type:    "),
+            Span::styled(
+                match pkg.pkg_type {
+                    crate::graph::PackageType::Rpm => "rpm",
+                    crate::graph::PackageType::Flatpak => "flatpak",
+                },
+                Style::default().fg(match pkg.pkg_type {
+                    crate::graph::PackageType::Rpm => Color::Blue,
+                    crate::graph::PackageType::Flatpak => Color::Rgb(236, 72, 153),
+                }).add_modifier(Modifier::BOLD)
+            ),
         ]));
         
         detail_lines.push(Line::from(""));
@@ -526,7 +559,7 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
     let help_text = if app.search_mode {
         " [Esc] Cancel & Clear | [Enter/Tab] Close | [Backspace] Delete "
     } else {
-        " [q] Quit | [f] Search | [1-4] Sort Columns | [WASD/Arrows] Scroll / Switch Panels "
+        " [q] Quit | [f] Search | [1-5] Sort Columns | [WASD/Arrows] Scroll / Switch Panels "
     };
     let footer = Paragraph::new(Span::raw(help_text))
         .style(Style::default().bg(Color::Rgb(30, 41, 59)).fg(Color::White));
@@ -621,9 +654,10 @@ fn run_app<B: ratatui::backend::Backend>(
                             };
                         }
                         KeyCode::Char('1') => app.set_sort_column(TuiSortColumn::Name),
-                        KeyCode::Char('2') => app.set_sort_column(TuiSortColumn::Size),
-                        KeyCode::Char('3') => app.set_sort_column(TuiSortColumn::Transitive),
-                        KeyCode::Char('4') => app.set_sort_column(TuiSortColumn::Exclusive),
+                        KeyCode::Char('2') => app.set_sort_column(TuiSortColumn::Type),
+                        KeyCode::Char('3') => app.set_sort_column(TuiSortColumn::Size),
+                        KeyCode::Char('4') => app.set_sort_column(TuiSortColumn::Transitive),
+                        KeyCode::Char('5') => app.set_sort_column(TuiSortColumn::Exclusive),
                         KeyCode::Enter => {
                             if app.active_panel == ActivePanel::Details {
                                 if let Some(pkg_idx) = selected_pkg {

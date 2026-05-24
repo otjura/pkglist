@@ -8,14 +8,14 @@ A stylish Rust CLI & TUI tool for Fedora/RHEL/dnf5-based systems to explore inst
 │Type here to filter packages...                                               │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭ Packages (3705) ─────────────────────────────╮╭ Package Details ─────────────╮
-│  Package          Size     Transitiv Saved ▼ ││Package: oidn-libs            │
-│» oidn-libs        212.10 M 3.11 GB   2.67 GB ││Version: 2.4.0-2.fc44 (x86_64)│
-│  rocm-hip         27.00 MB 2.90 GB   2.46 GB ││                              │
-│  hipcc            633.62 K 2.73 GB   2.30 GB ││Installed Size: 212.10 MB     │
-│  rocm-device-libs 3.25 MB  2.73 GB   2.30 GB ││Total Deps Size: 3.11 GB      │
-│  rocm-llvm-static 1.92 GB  2.32 GB   2.00 GB ││Saved if Removed: 2.67 GB     │
+│  Package   Type    Size    Transitiv Saved ▼ ││Package: oidn-libs            │
+│» oidn-libs rpm     212.10 M 3.11 GB   2.67 GB ││Version: 2.4.0-2.fc44 (x86_64)│
+│  rocm-hip  rpm     27.00 MB 2.90 GB   2.46 GB ││Type:    rpm                  │
+│  hipcc     rpm     633.62 K 2.73 GB   2.30 GB ││                              │
+│  rocm-devi rpm     3.25 MB  2.73 GB   2.30 GB ││Installed Size: 212.10 MB     │
+│  rocm-llvm rpm     1.92 GB  2.32 GB   2.00 GB ││Total Deps Size: 3.11 GB      │
 ╰──────────────────────────────────────────────╯╰──────────────────────────────╯
- [q] Quit | [f] Search | [1-4] Sort Columns | [WASD/Arrows] Scroll / Switch Panels
+ [q] Quit | [f] Search | [1-5] Sort Columns | [WASD/Arrows] Scroll / Switch Panels
 ```
 
 ---
@@ -30,7 +30,7 @@ A stylish Rust CLI & TUI tool for Fedora/RHEL/dnf5-based systems to explore inst
 
 ### 🛠 Powerful CLI Mode
 * `packages list`: Lists all packages in a beautifully aligned terminal table.
-  * Supports sorting by Name, Size, Transitive Size, and Exclusive Size.
+  * Supports sorting by Name, Type, Size, Transitive Size, and Exclusive Size.
   * Outputs in multiple formats: Pretty Table, CSV, TSV, or JSON.
   * Filter results with `--search <query>` and limit rows with `--limit <n>`.
 * `packages info <package>`: Dumps a highly structured, colorized text profile of a single package, including sorted requirements and dependents.
@@ -57,9 +57,10 @@ A stylish Rust CLI & TUI tool for Fedora/RHEL/dnf5-based systems to explore inst
 | **`PageUp`** / **`PageDown`** | Page scroll up/down in the active panel |
 | **`Home`** / **`End`** | Jump to the beginning or end of the active panel |
 | **`1`** | Sort packages by Name |
-| **`2`** | Sort packages by Installed Size |
-| **`3`** | Sort packages by Transitive Size (Total dependencies size) |
-| **`4`** | Sort packages by Saved Space (Exclusive size) |
+| **`2`** | Sort packages by Type |
+| **`3`** | Sort packages by Installed Size |
+| **`4`** | Sort packages by Transitive Size (Total dependencies size) |
+| **`5`** | Sort packages by Saved Space (Exclusive size) |
 | **`Enter`** (on Details) | Jump to the selected dependency or dependent in the Packages table |
 | **`q`** / **`Ctrl+C`** | Quit application |
 
