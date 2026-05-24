@@ -1,4 +1,6 @@
+use std::collections::{HashMap, HashSet};
 use std::process::Command;
+use crate::graph::PackageInput;
 
 #[derive(Debug, Clone)]
 pub struct RawPackage {
@@ -27,7 +29,7 @@ enum ParseState {
     Prov,
 }
 
-pub fn load_installed_packages() -> Result<Vec<RawPackage>, String> {
+pub fn load_installed_packages() -> Result<Vec<PackageInput>, String> {
     let output = Command::new("dnf5")
         .args(&[
             "repoquery",
@@ -44,7 +46,8 @@ pub fn load_installed_packages() -> Result<Vec<RawPackage>, String> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    parse_dnf_output(&stdout)
+    let raw_pkgs = parse_dnf_output(&stdout)?;
+    Ok(resolve_packages(raw_pkgs))
 }
 
 pub fn parse_dnf_output(stdout: &str) -> Result<Vec<RawPackage>, String> {
@@ -147,4 +150,73 @@ pub fn parse_dnf_output(stdout: &str) -> Result<Vec<RawPackage>, String> {
     }
 
     Ok(packages)
+}
+
+/// Strip version constraints from an RPM capability string.
+///
+/// e.g. "libfoo.so.1()(64bit) >= 1.2" → "libfoo.so.1()(64bit)"
+fn clean_capability(cap: &str) -> String {
+    let mut split_idx = cap.len();
+    for op in &[" >= ", " <= ", " = ", " > ", " < ", ">=", "<=", "="] {
+        if let Some(idx) = cap.find(op) {
+            if idx < split_idx {
+                split_idx = idx;
+            }
+        }
+    }
+    cap[..split_idx].trim().to_string()
+}
+
+/// Resolve RPM capability-based dependencies into direct package index references.
+///
+/// Builds a provides map from all packages, then resolves each package's requires
+/// against it, filtering out RPM-internal virtual capabilities.
+pub fn resolve_packages(raw_pkgs: Vec<RawPackage>) -> Vec<PackageInput> {
+    // Map capabilities (provides) to all package indices that provide them
+    let mut provides_map: HashMap<String, Vec<usize>> = HashMap::new();
+    for (i, rp) in raw_pkgs.iter().enumerate() {
+        // A package always provides its own name
+        provides_map.entry(rp.name.clone()).or_default().push(i);
+        
+        for prov in &rp.provides {
+            let clean = clean_capability(prov);
+            provides_map.entry(clean).or_default().push(i);
+        }
+    }
+    
+    // Resolve each package's requires into dependency indices
+    let resolved_deps: Vec<Vec<usize>> = raw_pkgs.iter().enumerate().map(|(i, rp)| {
+        let mut deps = HashSet::new();
+        for req in &rp.requires {
+            let clean = clean_capability(req);
+            
+            // Skip RPM-internal virtual requirements
+            if clean.starts_with("rpmlib(") || clean.starts_with("rtld(") {
+                continue;
+            }
+            
+            if let Some(providers) = provides_map.get(&clean) {
+                for &dep_idx in providers {
+                    if dep_idx != i { // No self-loops
+                        deps.insert(dep_idx);
+                    }
+                }
+            }
+        }
+        deps.into_iter().collect()
+    }).collect();
+    
+    // Convert to backend-agnostic PackageInput
+    raw_pkgs.into_iter().zip(resolved_deps).map(|(rp, deps)| {
+        PackageInput {
+            name: rp.name,
+            version: rp.version,
+            release: rp.release,
+            arch: rp.arch,
+            installsize: rp.installsize,
+            summary: rp.summary,
+            description: rp.description,
+            resolved_deps: deps,
+        }
+    }).collect()
 }

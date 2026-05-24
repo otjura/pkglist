@@ -16,6 +16,16 @@
       </directive>
     </constraint>
     
+    <constraint id="keep-architecture-decoupled">
+      <target-files>
+        <file>src/graph.rs</file>
+        <file>src/dnf.rs</file>
+      </target-files>
+      <directive>
+        The graph module (graph.rs) MUST remain backend-agnostic. It defines the PackageInput interface struct and must NOT contain any packaging-system-specific logic (RPM capability parsing, dnf filtering, version constraint stripping, etc.). All packaging-system-specific dependency resolution belongs in the backend module (currently dnf.rs). New backends (e.g., apt.rs, pacman.rs) should produce Vec&lt;PackageInput&gt; with pre-resolved dependency indices and plug directly into graph::build_graph without any modifications to graph.rs.
+      </directive>
+    </constraint>
+    
     <constraint id="do-not-touch-dnf-parser">
       <target-files>
         <file>src/dnf.rs</file>

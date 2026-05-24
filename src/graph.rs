@@ -1,5 +1,19 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use crate::dnf::RawPackage;
+
+/// Backend-agnostic package input. Any package manager backend should
+/// produce a Vec of these with pre-resolved dependency indices.
+#[derive(Debug, Clone)]
+pub struct PackageInput {
+    pub name: String,
+    pub version: String,
+    pub release: String,
+    pub arch: String,
+    pub installsize: u64,
+    pub summary: String,
+    pub description: String,
+    /// Indices into the parent Vec<PackageInput> representing resolved dependencies.
+    pub resolved_deps: Vec<usize>,
+}
 
 #[derive(Debug, Clone)]
 pub struct Package {
@@ -11,7 +25,7 @@ pub struct Package {
     pub summary: String,
     pub description: String,
     
-    // Indices into the dependency array
+    // Indices into the packages array
     pub dependencies: Vec<usize>,
     pub dependents: Vec<usize>,
     
@@ -25,79 +39,33 @@ pub struct DependencyGraph {
     pub name_to_index: HashMap<String, usize>,
 }
 
-fn clean_capability(cap: &str) -> String {
-    let mut split_idx = cap.len();
-    for op in &[" >= ", " <= ", " = ", " > ", " < ", ">=", "<=", "="] {
-        if let Some(idx) = cap.find(op) {
-            if idx < split_idx {
-                split_idx = idx;
-            }
+pub fn build_graph(inputs: Vec<PackageInput>) -> DependencyGraph {
+    let mut packages = Vec::with_capacity(inputs.len());
+    let mut name_to_index = HashMap::with_capacity(inputs.len());
+    
+    // Build reverse dependency map from pre-resolved forward edges
+    let mut rev_deps: Vec<Vec<usize>> = vec![Vec::new(); inputs.len()];
+    for (i, input) in inputs.iter().enumerate() {
+        for &dep_idx in &input.resolved_deps {
+            rev_deps[dep_idx].push(i);
         }
     }
-    cap[..split_idx].trim().to_string()
-}
-
-pub fn build_graph(raw_pkgs: Vec<RawPackage>) -> DependencyGraph {
-    let mut packages = Vec::with_capacity(raw_pkgs.len());
-    let mut name_to_index = HashMap::with_capacity(raw_pkgs.len());
     
-    for (i, rp) in raw_pkgs.iter().enumerate() {
-        name_to_index.insert(rp.name.clone(), i);
+    for (i, input) in inputs.into_iter().enumerate() {
+        name_to_index.insert(input.name.clone(), i);
         packages.push(Package {
-            name: rp.name.clone(),
-            version: rp.version.clone(),
-            release: rp.release.clone(),
-            arch: rp.arch.clone(),
-            installsize: rp.installsize,
-            summary: rp.summary.clone(),
-            description: rp.description.clone(),
-            dependencies: Vec::new(),
-            dependents: Vec::new(),
+            name: input.name,
+            version: input.version,
+            release: input.release,
+            arch: input.arch,
+            installsize: input.installsize,
+            summary: input.summary,
+            description: input.description,
+            dependencies: input.resolved_deps,
+            dependents: std::mem::take(&mut rev_deps[i]),
             transitive_size: 0,
             exclusive_size: 0,
         });
-    }
-    
-    // Map capabilities (provides) to all package indices that provide them
-    let mut provides_map: HashMap<String, Vec<usize>> = HashMap::new();
-    for (i, rp) in raw_pkgs.iter().enumerate() {
-        // A package always provides its own name
-        provides_map.entry(rp.name.clone()).or_default().push(i);
-        
-        for prov in &rp.provides {
-            let clean = clean_capability(prov);
-            provides_map.entry(clean).or_default().push(i);
-        }
-    }
-    
-    // Build dependency edges
-    let mut temp_deps = vec![HashSet::new(); packages.len()];
-    let mut temp_rev_deps = vec![HashSet::new(); packages.len()];
-    
-    for (i, rp) in raw_pkgs.iter().enumerate() {
-        for req in &rp.requires {
-            let clean = clean_capability(req);
-            
-            // Skip system/manager requirements
-            if clean.starts_with("rpmlib(") || clean.starts_with("rtld(") {
-                continue;
-            }
-            
-            if let Some(providers) = provides_map.get(&clean) {
-                for &dep_idx in providers {
-                    if dep_idx != i { // No self-loops
-                        temp_deps[i].insert(dep_idx);
-                        temp_rev_deps[dep_idx].insert(i);
-                    }
-                }
-            }
-        }
-    }
-    
-    // Populate packages dependencies and dependents lists
-    for i in 0..packages.len() {
-        packages[i].dependencies = temp_deps[i].iter().copied().collect();
-        packages[i].dependents = temp_rev_deps[i].iter().copied().collect();
     }
     
     // Compute transitive sizes

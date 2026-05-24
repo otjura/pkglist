@@ -20,7 +20,7 @@ fn main() {
         println!("{}", "🔍 Loading package database and resolving dependencies...".cyan().bold());
     }
 
-    let raw_pkgs = match dnf::load_installed_packages() {
+    let pkg_inputs = match dnf::load_installed_packages() {
         Ok(pkgs) => pkgs,
         Err(err) => {
             eprintln!("{} {}", "Error loading package information:".red().bold(), err);
@@ -28,7 +28,7 @@ fn main() {
         }
     };
 
-    let graph = graph::build_graph(raw_pkgs);
+    let graph = graph::build_graph(pkg_inputs);
 
     match args.command {
         Some(cli::Commands::List { sort, limit, search, format }) => {
