@@ -5,7 +5,8 @@ use serde::Serialize;
 
 #[derive(Parser, Debug)]
 #[command(name = "pkglist")]
-#[command(about = "A stylish CLI & TUI package space explorer.", long_about = None)]
+#[command(version)]
+#[command(about = format!("pkglist is a package disk space usage explorer. (v{v})", v = env!("CARGO_PKG_VERSION")), long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
