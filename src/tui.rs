@@ -406,6 +406,7 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
     if let Some(pkg_idx) = selected_pkg {
         let pkg = &app.graph.packages[pkg_idx];
         let content_width = (main_chunks[1].width as usize).saturating_sub(4);
+        let mut selected_line_idx = None;
         
         // Clamp selected_dep_idx globally based on total selectable items (dependencies + dependents)
         let num_deps = pkg.dependencies.len();
@@ -487,6 +488,9 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
             for (idx, &r) in reqs.iter().enumerate() {
                 let req = &app.graph.packages[r];
                 let is_selected = app.active_panel == ActivePanel::Details && app.selected_dep_idx == idx;
+                if is_selected {
+                    selected_line_idx = Some(detail_lines.len());
+                }
                 
                 let prefix = if is_selected { "» " } else { "- " };
                 let mut style = Style::default();
@@ -520,6 +524,9 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
                 let dep = &app.graph.packages[d];
                 let global_idx = num_reqs + idx;
                 let is_selected = app.active_panel == ActivePanel::Details && app.selected_dep_idx == global_idx;
+                if is_selected {
+                    selected_line_idx = Some(detail_lines.len());
+                }
                 
                 let prefix = if is_selected { "» " } else { "- " };
                 let mut style = Style::default();
@@ -540,6 +547,18 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
         let total_lines = detail_lines.len();
         let height = main_chunks[1].height as usize;
         let visible_height = height.saturating_sub(2);
+        
+        if visible_height > 0 {
+            if let Some(line_idx) = selected_line_idx {
+                if app.selected_dep_idx == 0 {
+                    app.details_scroll = 0;
+                } else if line_idx < app.details_scroll {
+                    app.details_scroll = line_idx;
+                } else if line_idx >= app.details_scroll + visible_height {
+                    app.details_scroll = line_idx.saturating_sub(visible_height).saturating_add(1);
+                }
+            }
+        }
         
         app.details_scroll = app.details_scroll.min(total_lines.saturating_sub(visible_height));
 
@@ -595,6 +614,17 @@ pub fn run_tui(graph: &DependencyGraph) -> Result<(), String> {
     res
 }
 
+fn delete_last_word(s: &mut String) {
+    let trimmed = s.trim_end();
+    if trimmed.is_empty() {
+        s.clear();
+    } else if let Some(pos) = trimmed.rfind(' ') {
+        s.truncate(pos + 1);
+    } else {
+        s.clear();
+    }
+}
+
 fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut ratatui::Terminal<B>,
     app: &mut TuiApp,
@@ -621,12 +651,23 @@ fn run_app<B: ratatui::backend::Backend>(
                             app.update_filter();
                         }
                         KeyCode::Backspace => {
-                            app.search_query.pop();
+                            if key.modifiers.contains(KeyModifiers::CONTROL) {
+                                delete_last_word(&mut app.search_query);
+                            } else {
+                                app.search_query.pop();
+                            }
                             app.update_filter();
                         }
                         KeyCode::Char(c) => {
-                            app.search_query.push(c);
-                            app.update_filter();
+                            if key.modifiers.contains(KeyModifiers::CONTROL) {
+                                if c == 'h' || c == 'H' || c == 'w' || c == 'W' {
+                                    delete_last_word(&mut app.search_query);
+                                    app.update_filter();
+                                }
+                            } else if !key.modifiers.contains(KeyModifiers::ALT) {
+                                app.search_query.push(c);
+                                app.update_filter();
+                            }
                         }
                         _ => {}
                     }
@@ -776,3 +817,36 @@ fn run_app<B: ratatui::backend::Backend>(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_delete_last_word() {
+        let mut s = String::from("cargo build");
+        delete_last_word(&mut s);
+        assert_eq!(s, "cargo ");
+
+        let mut s = String::from("cargo build  ");
+        delete_last_word(&mut s);
+        assert_eq!(s, "cargo ");
+
+        let mut s = String::from("cargo");
+        delete_last_word(&mut s);
+        assert_eq!(s, "");
+
+        let mut s = String::from("   ");
+        delete_last_word(&mut s);
+        assert_eq!(s, "");
+
+        let mut s = String::from("");
+        delete_last_word(&mut s);
+        assert_eq!(s, "");
+
+        let mut s = String::from("cargo   build");
+        delete_last_word(&mut s);
+        assert_eq!(s, "cargo   ");
+    }
+}
+
