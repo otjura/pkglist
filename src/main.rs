@@ -4,6 +4,7 @@ use colored::*;
 mod dnf;
 mod flatpak;
 mod graph;
+mod npm;
 mod cli;
 mod tui;
 
@@ -35,6 +36,15 @@ fn main() {
         }
         Err(err) => {
             eprintln!("{} {}", "Warning: Error loading flatpak package information:".yellow().bold(), err);
+        }
+    }
+
+    match npm::load_installed_npm_packages() {
+        Ok(npm_pkgs) => {
+            pkg_inputs.extend(npm_pkgs);
+        }
+        Err(err) => {
+            eprintln!("{} {}", "Warning: Error loading npm package information:".yellow().bold(), err);
         }
     }
 

@@ -6,6 +6,7 @@ use serde::Serialize;
 pub enum PackageType {
     Rpm,
     Flatpak,
+    Npm,
 }
 
 /// Backend-agnostic package input. Any package manager backend should

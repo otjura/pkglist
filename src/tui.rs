@@ -69,10 +69,12 @@ fn filter_and_sort(
                 let type_a = match pkg_a.pkg_type {
                     crate::graph::PackageType::Rpm => "rpm",
                     crate::graph::PackageType::Flatpak => "flatpak",
+                    crate::graph::PackageType::Npm => "npm",
                 };
                 let type_b = match pkg_b.pkg_type {
                     crate::graph::PackageType::Rpm => "rpm",
                     crate::graph::PackageType::Flatpak => "flatpak",
+                    crate::graph::PackageType::Npm => "npm",
                 };
                 type_a.cmp(type_b).then_with(|| pkg_a.name.cmp(&pkg_b.name))
             }
@@ -369,6 +371,7 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
             let (type_str, type_color) = match pkg.pkg_type {
                 crate::graph::PackageType::Rpm => ("rpm", Color::Blue),
                 crate::graph::PackageType::Flatpak => ("flatpak", Color::Rgb(236, 72, 153)),
+                crate::graph::PackageType::Npm => ("npm", Color::Rgb(203, 56, 55)),
             };
             let cells = [
                 Cell::from(pkg.name.clone()).style(Style::default().fg(Color::White)),
@@ -436,10 +439,12 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
                 match pkg.pkg_type {
                     crate::graph::PackageType::Rpm => "rpm",
                     crate::graph::PackageType::Flatpak => "flatpak",
+                    crate::graph::PackageType::Npm => "npm",
                 },
                 Style::default().fg(match pkg.pkg_type {
                     crate::graph::PackageType::Rpm => Color::Blue,
                     crate::graph::PackageType::Flatpak => Color::Rgb(236, 72, 153),
+                    crate::graph::PackageType::Npm => Color::Rgb(203, 56, 55),
                 }).add_modifier(Modifier::BOLD)
             ),
         ]));

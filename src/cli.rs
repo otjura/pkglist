@@ -107,10 +107,12 @@ pub fn run_list(
                 let type_a = match a.pkg_type {
                     crate::graph::PackageType::Rpm => "rpm",
                     crate::graph::PackageType::Flatpak => "flatpak",
+                    crate::graph::PackageType::Npm => "npm",
                 };
                 let type_b = match b.pkg_type {
                     crate::graph::PackageType::Rpm => "rpm",
                     crate::graph::PackageType::Flatpak => "flatpak",
+                    crate::graph::PackageType::Npm => "npm",
                 };
                 type_a.cmp(type_b).then_with(|| a.name.cmp(&b.name))
             }
@@ -161,11 +163,13 @@ fn print_table(pkgs: &[&Package]) {
         let type_raw = match p.pkg_type {
             crate::graph::PackageType::Rpm => "rpm",
             crate::graph::PackageType::Flatpak => "flatpak",
+            crate::graph::PackageType::Npm => "npm",
         };
         let type_padded = format!("{:<8}", type_raw);
         let type_str = match p.pkg_type {
             crate::graph::PackageType::Rpm => type_padded.blue(),
             crate::graph::PackageType::Flatpak => type_padded.magenta(),
+            crate::graph::PackageType::Npm => type_padded.red(),
         };
         let size_str = format_bytes(p.installsize).green();
         let trans_str = format_bytes(p.transitive_size).yellow();
@@ -187,6 +191,7 @@ fn print_csv(pkgs: &[&Package]) {
         let type_str = match p.pkg_type {
             crate::graph::PackageType::Rpm => "rpm",
             crate::graph::PackageType::Flatpak => "flatpak",
+            crate::graph::PackageType::Npm => "npm",
         };
         println!(
             "{},{},{},{},{},{},{},{}",
@@ -201,6 +206,7 @@ fn print_tsv(pkgs: &[&Package]) {
         let type_str = match p.pkg_type {
             crate::graph::PackageType::Rpm => "rpm",
             crate::graph::PackageType::Flatpak => "flatpak",
+            crate::graph::PackageType::Npm => "npm",
         };
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
@@ -248,6 +254,7 @@ pub fn run_info(graph: &DependencyGraph, name: &str) {
     let type_str = match p.pkg_type {
         crate::graph::PackageType::Rpm => "rpm".blue().bold(),
         crate::graph::PackageType::Flatpak => "flatpak".magenta().bold(),
+        crate::graph::PackageType::Npm => "npm".red().bold(),
     };
     println!("{:<15} {}", "Type:".bold(), type_str);
     println!("{:<15} {}", "Architecture:".bold(), p.arch);
