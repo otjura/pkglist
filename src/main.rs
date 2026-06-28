@@ -5,6 +5,7 @@ mod dnf;
 mod flatpak;
 mod graph;
 mod npm;
+mod bun;
 mod cli;
 mod tui;
 
@@ -45,6 +46,15 @@ fn main() {
         }
         Err(err) => {
             eprintln!("{} {}", "Warning: Error loading npm package information:".yellow().bold(), err);
+        }
+    }
+
+    match bun::load_installed_bun_packages() {
+        Ok(bun_pkgs) => {
+            pkg_inputs.extend(bun_pkgs);
+        }
+        Err(err) => {
+            eprintln!("{} {}", "Warning: Error loading Bun package information:".yellow().bold(), err);
         }
     }
 
