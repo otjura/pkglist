@@ -8,6 +8,7 @@ pub enum PackageType {
     Flatpak,
     Npm,
     Bun,
+    Pip,
 }
 
 /// Backend-agnostic package input. Any package manager backend should

@@ -109,12 +109,14 @@ pub fn run_list(
                     crate::graph::PackageType::Flatpak => "flatpak",
                     crate::graph::PackageType::Npm => "npm",
                     crate::graph::PackageType::Bun => "bun",
+                    crate::graph::PackageType::Pip => "pip",
                 };
                 let type_b = match b.pkg_type {
                     crate::graph::PackageType::Rpm => "rpm",
                     crate::graph::PackageType::Flatpak => "flatpak",
                     crate::graph::PackageType::Npm => "npm",
                     crate::graph::PackageType::Bun => "bun",
+                    crate::graph::PackageType::Pip => "pip",
                 };
                 type_a.cmp(type_b).then_with(|| a.name.cmp(&b.name))
             }
@@ -167,6 +169,7 @@ fn print_table(pkgs: &[&Package]) {
             crate::graph::PackageType::Flatpak => "flatpak",
             crate::graph::PackageType::Npm => "npm",
             crate::graph::PackageType::Bun => "bun",
+            crate::graph::PackageType::Pip => "pip",
         };
         let type_padded = format!("{:<8}", type_raw);
         let type_str = match p.pkg_type {
@@ -174,6 +177,7 @@ fn print_table(pkgs: &[&Package]) {
             crate::graph::PackageType::Flatpak => type_padded.magenta(),
             crate::graph::PackageType::Npm => type_padded.red(),
             crate::graph::PackageType::Bun => type_padded.cyan(),
+            crate::graph::PackageType::Pip => type_padded.yellow(),
         };
         let size_str = format_bytes(p.installsize).green();
         let trans_str = format_bytes(p.transitive_size).yellow();
@@ -197,6 +201,7 @@ fn print_csv(pkgs: &[&Package]) {
             crate::graph::PackageType::Flatpak => "flatpak",
             crate::graph::PackageType::Npm => "npm",
             crate::graph::PackageType::Bun => "bun",
+            crate::graph::PackageType::Pip => "pip",
         };
         println!(
             "{},{},{},{},{},{},{},{}",
@@ -213,6 +218,7 @@ fn print_tsv(pkgs: &[&Package]) {
             crate::graph::PackageType::Flatpak => "flatpak",
             crate::graph::PackageType::Npm => "npm",
             crate::graph::PackageType::Bun => "bun",
+            crate::graph::PackageType::Pip => "pip",
         };
         println!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
@@ -262,6 +268,7 @@ pub fn run_info(graph: &DependencyGraph, name: &str) {
         crate::graph::PackageType::Flatpak => "flatpak".magenta().bold(),
         crate::graph::PackageType::Npm => "npm".red().bold(),
         crate::graph::PackageType::Bun => "bun".cyan().bold(),
+        crate::graph::PackageType::Pip => "pip".yellow().bold(),
     };
     println!("{:<15} {}", "Type:".bold(), type_str);
     println!("{:<15} {}", "Architecture:".bold(), p.arch);

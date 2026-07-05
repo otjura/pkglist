@@ -71,12 +71,14 @@ fn filter_and_sort(
                     crate::graph::PackageType::Flatpak => "flatpak",
                     crate::graph::PackageType::Npm => "npm",
                     crate::graph::PackageType::Bun => "bun",
+                    crate::graph::PackageType::Pip => "pip",
                 };
                 let type_b = match pkg_b.pkg_type {
                     crate::graph::PackageType::Rpm => "rpm",
                     crate::graph::PackageType::Flatpak => "flatpak",
                     crate::graph::PackageType::Npm => "npm",
                     crate::graph::PackageType::Bun => "bun",
+                    crate::graph::PackageType::Pip => "pip",
                 };
                 type_a.cmp(type_b).then_with(|| pkg_a.name.cmp(&pkg_b.name))
             }
@@ -135,15 +137,19 @@ impl<'a> TuiApp<'a> {
             selected_dep_idx: 0,
             should_quit: false,
         };
-        app.update_filter();
+        app.update_filter(false);
         app
     }
 
-    fn update_filter(&mut self) {
+    fn update_filter(&mut self, preserve_selected_index: bool) {
         let old_selected = self.table_state.selected();
-        let selected_pkg_name = old_selected
-            .and_then(|idx| self.filtered_indices.get(idx))
-            .map(|&idx| &self.graph.packages[idx].name);
+        let selected_pkg_name = if preserve_selected_index {
+            None
+        } else {
+            old_selected
+                .and_then(|idx| self.filtered_indices.get(idx))
+                .map(|&idx| &self.graph.packages[idx].name)
+        };
 
         self.filtered_indices = filter_and_sort(
             self.graph,
@@ -152,7 +158,16 @@ impl<'a> TuiApp<'a> {
             self.sort_direction,
         );
 
-        if let Some(name) = selected_pkg_name {
+        if preserve_selected_index {
+            if let Some(idx) = old_selected {
+                if self.filtered_indices.is_empty() {
+                    self.table_state.select(None);
+                } else {
+                    let new_idx = idx.min(self.filtered_indices.len() - 1);
+                    self.table_state.select(Some(new_idx));
+                }
+            }
+        } else if let Some(name) = selected_pkg_name {
             if let Some(new_idx) = self.filtered_indices.iter().position(|&idx| &self.graph.packages[idx].name == name) {
                 self.table_state.select(Some(new_idx));
             } else if !self.filtered_indices.is_empty() {
@@ -275,7 +290,7 @@ impl<'a> TuiApp<'a> {
                 _ => SortDirection::Descending,
             };
         }
-        self.update_filter();
+        self.update_filter(true);
     }
 }
 
@@ -375,6 +390,7 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
                 crate::graph::PackageType::Flatpak => ("flatpak", Color::Rgb(236, 72, 153)),
                 crate::graph::PackageType::Npm => ("npm", Color::Rgb(203, 56, 55)),
                 crate::graph::PackageType::Bun => ("bun", Color::Cyan),
+                crate::graph::PackageType::Pip => ("pip", Color::Yellow),
             };
             let cells = [
                 Cell::from(pkg.name.clone()).style(Style::default().fg(Color::White)),
@@ -444,12 +460,14 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
                     crate::graph::PackageType::Flatpak => "flatpak",
                     crate::graph::PackageType::Npm => "npm",
                     crate::graph::PackageType::Bun => "bun",
+                    crate::graph::PackageType::Pip => "pip",
                 },
                 Style::default().fg(match pkg.pkg_type {
                     crate::graph::PackageType::Rpm => Color::Blue,
                     crate::graph::PackageType::Flatpak => Color::Rgb(236, 72, 153),
                     crate::graph::PackageType::Npm => Color::Rgb(203, 56, 55),
                     crate::graph::PackageType::Bun => Color::Cyan,
+                    crate::graph::PackageType::Pip => Color::Yellow,
                 }).add_modifier(Modifier::BOLD)
             ),
         ]));
@@ -588,7 +606,7 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut TuiApp) {
     let help_text = if app.search_mode {
         " [Esc] Cancel & Clear | [Enter/Tab] Close | [Backspace] Delete "
     } else {
-        " [q] Quit | [f] Search | [1-5] Sort Columns | [WASD/Arrows] Scroll / Switch Panels "
+        " [q/Esc] Quit | [f] Search | [1-5] Sort Columns | [WASD/Arrows] Scroll / Switch Panels "
     };
     let footer = Paragraph::new(Span::raw(help_text))
         .style(Style::default().bg(Color::Rgb(30, 41, 59)).fg(Color::White));
@@ -658,7 +676,7 @@ fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Esc => {
                             app.search_mode = false;
                             app.search_query.clear();
-                            app.update_filter();
+                            app.update_filter(false);
                         }
                         KeyCode::Backspace => {
                             if key.modifiers.contains(KeyModifiers::CONTROL) {
@@ -666,17 +684,17 @@ fn run_app<B: ratatui::backend::Backend>(
                             } else {
                                 app.search_query.pop();
                             }
-                            app.update_filter();
+                            app.update_filter(false);
                         }
                         KeyCode::Char(c) => {
                             if key.modifiers.contains(KeyModifiers::CONTROL) {
                                 if c == 'h' || c == 'H' || c == 'w' || c == 'W' {
                                     delete_last_word(&mut app.search_query);
-                                    app.update_filter();
+                                    app.update_filter(false);
                                 }
                             } else if !key.modifiers.contains(KeyModifiers::ALT) {
                                 app.search_query.push(c);
-                                app.update_filter();
+                                app.update_filter(false);
                             }
                         }
                         _ => {}
@@ -693,10 +711,7 @@ fn run_app<B: ratatui::backend::Backend>(
                             app.search_mode = true;
                         }
                         KeyCode::Esc => {
-                            if !app.search_query.is_empty() {
-                                app.search_query.clear();
-                                app.update_filter();
-                            }
+                            app.should_quit = true;
                         }
                         KeyCode::Tab => {
                             app.active_panel = match app.active_panel {
@@ -734,7 +749,7 @@ fn run_app<B: ratatui::backend::Backend>(
                                         
                                         if found_pos.is_none() {
                                             app.search_query.clear();
-                                            app.update_filter();
+                                            app.update_filter(false);
                                             found_pos = app.filtered_indices.iter().position(|&idx| idx == target_idx);
                                         }
                                         
